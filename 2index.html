@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Tamanho</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        dark: '#1F2937',
+                        darker: '#111827',
+                        accent: '#60A5FA'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Animações para os SVGs */
+        .fit-btn svg {
+            transition: all 0.3s ease;
+        }
+        
+        .fit-btn:hover svg {
+            transform: scale(1.1);
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+        }
+        
+        /* Animação de pulso para o botão selecionado */
+        .fit-btn.selected svg {
+            animation: pulse-glow 2s infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { 
+                transform: scale(1);
+                filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
+            }
+            50% { 
+                transform: scale(1.05);
+                filter: drop-shadow(0 0 15px rgba(255,255,255,0.5));
+            }
+        }
+        
+        /* Animação de "respiração" para simular diferentes ajustes */
+        .ajuste-justo {
+            animation: breathing-tight 3s ease-in-out infinite;
+        }
+        
+        .ajuste-normal {
+            animation: breathing-normal 4s ease-in-out infinite;
+        }
+        
+        .ajuste-largo {
+            animation: breathing-loose 5s ease-in-out infinite;
+        }
+        
+        @keyframes breathing-tight {
+            0%, 100% { transform: scaleX(0.95); }
+            50% { transform: scaleX(1); }
+        }
+        
+        @keyframes breathing-normal {
+            0%, 100% { transform: scaleX(1); }
+            50% { transform: scaleX(1.05); }
+        }
+        
+        @keyframes breathing-loose {
+            0%, 100% { transform: scaleX(1.05); }
+            50% { transform: scaleX(1.15); }
+        }
+        
+        /* Animação de entrada */
+        .fit-btn {
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        .fit-btn:nth-child(1) { animation-delay: 0.1s; }
+        .fit-btn:nth-child(2) { animation-delay: 0.2s; }
+        .fit-btn:nth-child(3) { animation-delay: 0.3s; }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Animação do botão calcular */
+        .calculate-btn {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .calculate-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .calculate-btn:hover::before {
+            left: 100%;
+        }
+        
+        /* Animações de clique */
+        .click-bounce {
+            animation: clickBounce 0.3s ease-out;
+        }
+        
+        .click-pulse {
+            animation: clickPulse 0.6s ease-out;
+        }
+        
+        .click-shake {
+            animation: clickShake 0.5s ease-out;
+        }
+        
+        .click-flip {
+            animation: clickFlip 0.6s ease-out;
+        }
+        
+        .loading-spin {
+            animation: loadingSpin 1s linear infinite;
+        }
+        
+        @keyframes clickBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+        }
+        
+        @keyframes clickPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        @keyframes clickShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+            20%, 40%, 60%, 80% { transform: translateX(3px); }
+        }
+        
+        @keyframes clickFlip {
+            0% { transform: perspective(400px) rotateY(0); }
+            40% { transform: perspective(400px) rotateY(-90deg); }
+            60% { transform: perspective(400px) rotateY(-90deg); }
+            100% { transform: perspective(400px) rotateY(0); }
+        }
+        
+        @keyframes loadingSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Efeito Ripple */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ripple::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .ripple.active::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        /* Animação de sucesso */
+        .success-animation {
+            animation: successPulse 0.8s ease-out;
+            background: linear-gradient(45deg, #10B981, #059669) !important;
+        }
+        
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Animação de erro */
+        .error-animation {
+            animation: errorShake 0.6s ease-out;
+            border-color: #EF4444 !important;
+        }
+        
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        /* Animações SVG responsivas */
+        .svg-click-rotate {
+            animation: svgRotate 0.5s ease-out;
+        }
+        
+        .svg-click-bounce {
+            animation: svgBounce 0.4s ease-out;
+        }
+        
+        .svg-click-wobble {
+            animation: svgWobble 0.6s ease-out;
+        }
+        
+        @keyframes svgRotate {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        
+        @keyframes svgBounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-10px) scale(1.1); }
+        }
+        
+        @keyframes svgWobble {
+            0%, 100% { transform: rotate(0deg); }
+            15% { transform: rotate(-5deg); }
+            30% { transform: rotate(5deg); }
+            45% { transform: rotate(-3deg); }
+            60% { transform: rotate(3deg); }
+            75% { transform: rotate(-1deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-darker min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Calculadora de Tamanho</h1>
+            <p class="text-gray-600 dark:text-gray-300">Descubra o tamanho ideal para você com base em suas medidas e preferência de ajuste</p>
+        </div>
+
+        <!-- Main Form -->
+        <div class="bg-white dark:bg-dark rounded-xl p-8 shadow-lg mb-8">
+            <!-- Gender Selection -->
+            <div class="mb-8">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Gênero</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="selectGender('masculino')" id="btn-masculino" 
+                            class="gender-btn flex items-center justify-center gap-3 p-4 border-2 border-primary bg-primary text-white rounded-xl font-medium transition-all hover:shadow-lg">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+                        </svg>
+                        Masculino
+                    </button>
+                    <button onclick="selectGender('feminino')" id="btn-feminino" 
+                            class="gender-btn flex items-center justify-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl font-medium transition-all hover:border-primary hover:text-primary">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+                        </svg>
+                        Feminino
+                    </button>
+                </div>
+            </div>
+
+            <!-- Measurements Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- Height Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Altura</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/>
+                            </svg>
+                        </div>
+                        <input type="text" id="altura" placeholder="Ex: 170 ou 1,70" 
+                               class="w-full pl-12 pr-4 py-4 text-base border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Digite em centímetros (170) ou metros (1,70)</p>
+                </div>
+
+                <!-- Weight Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Peso (kg)</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16l3-3m-3 3l-3-3"/>
+                            </svg>
+                        </div>
+                        <input type="number" id="peso" placeholder="Ex: 70" 
+                               class="w-full pl-12 pr-4 py-4 text-base border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fit Preference -->
+            <div class="mb-8">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Como você prefere que uma roupa fique no corpo?</label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="selectFit('justo')" id="fit-justo" 
+                            class="fit-btn p-6 border-2 border-primary bg-primary text-white rounded-xl text-center transition-all hover:shadow-lg">
+                        <div class="mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                                <!-- SVG para ajuste JUSTO - mais apertado -->
+                                <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+                            </svg>
+                        </div>
+                        <div class="font-semibold mb-2">Justo</div>
+                        <div class="text-sm opacity-90">Ajuste mais próximo ao corpo, valorizando a silhueta</div>
+                    </button>
+                    <button onclick="selectFit('normal')" id="fit-normal" 
+                            class="fit-btn p-6 border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-xl text-center transition-all hover:border-primary hover:text-primary">
+                        <div class="mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                                <!-- SVG para ajuste NORMAL - padrão -->
+                                <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+                            </svg>
+                        </div>
+                        <div class="font-semibold mb-2">Normal</div>
+                        <div class="text-sm">Ajuste padrão, nem justo nem largo</div>
+                    </button>
+                    <button onclick="selectFit('largo')" id="fit-largo" 
+                            class="fit-btn p-6 border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-xl text-center transition-all hover:border-primary hover:text-primary">
+                        <div class="mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                                <!-- SVG para ajuste LARGO - mais solto -->
+                                <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+                            </svg>
+                        </div>
+                        <div class="font-semibold mb-2">Largo</div>
+                        <div class="text-sm">Ajuste mais solto e confortável</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Calculate Button -->
+            <button onclick="calcularTamanho()" 
+                    class="calculate-btn w-full bg-primary text-white py-4 px-8 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-3">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                Calcular Tamanho
+            </button>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultado" class="hidden bg-primary text-white rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-bold mb-2">Seu tamanho ideal é: <span id="tamanho-resultado"></span></h2>
+            <p id="descricao-resultado" class="mb-4"></p>
+            
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="text-center">
+                    <div class="font-medium">Busto</div>
+                    <div id="busto-resultado" class="text-sm"></div>
+                </div>
+                <div class="text-center">
+                    <div class="font-medium">Cintura</div>
+                    <div id="cintura-resultado" class="text-sm"></div>
+                </div>
+                <div class="text-center">
+                    <div class="font-medium">Quadril</div>
+                    <div id="quadril-resultado" class="text-sm"></div>
+                </div>
+            </div>
+            
+            <p class="text-sm opacity-90">Esta recomendação considera suas medidas e preferência de ajuste para um resultado mais preciso.</p>
+        </div>
+
+        <!-- Reference Tables -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-8">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4" id="tabela-titulo">Tabela de Referência - Masculino</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-300 dark:border-gray-600">
+                            <th class="text-left py-2 text-gray-900 dark:text-white">Tamanho</th>
+                            <th class="text-left py-2 text-gray-900 dark:text-white">Altura (cm)</th>
+                            <th class="text-left py-2 text-gray-900 dark:text-white">Peso (kg)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-body" class="text-gray-700 dark:text-gray-300">
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <td class="py-2">PP</td>
+                            <td class="py-2">0 - 162</td>
+                            <td class="py-2">0,0 - 42,0</td>
+                        </tr>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <td class="py-2">P</td>
+                            <td class="py-2">163 - 169</td>
+                            <td class="py-2">42,0 - 66,0</td>
+                        </tr>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <td class="py-2">M</td>
+                            <td class="py-2">170 - 185</td>
+                            <td class="py-2">66,0 - 79,0</td>
+                        </tr>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <td class="py-2">G</td>
+                            <td class="py-2">186 - 193</td>
+                            <td class="py-2">79,1 - 99,0</td>
+                        </tr>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <td class="py-2">GG</td>
+                            <td class="py-2">194 - 220</td>
+                            <td class="py-2">99,0 - 100,0</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2">EG/OVO</td>
+                            <td class="py-2">221 - 999</td>
+                            <td class="py-2">100,1 - 999,0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tips Section -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Dicas para Escolher o Tamanho Ideal</h3>
+            <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                <li class="flex items-start">
+                    <span class="text-primary mr-2">•</span>
+                    <span>Nossos tecidos possuem elastano, permitindo um ajuste confortável mesmo em modelagens mais justas</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="text-primary mr-2">•</span>
+                    <span>Se estiver entre dois tamanhos e um ajuste mais confortável, escolha o maior</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="text-primary mr-2">•</span>
+                    <span>Em caso de dúvida, entre em contato com nosso atendimento</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        let selectedGender = 'masculino';
+        let selectedFit = 'justo';
+
+        // Reference tables
+        const tabelaMasculino = [
+            { tamanho: 'PP', alturaMin: 0, alturaMax: 162, pesoMin: 0, pesoMax: 42 },
+            { tamanho: 'P', alturaMin: 163, alturaMax: 169, pesoMin: 42, pesoMax: 66 },
+            { tamanho: 'M', alturaMin: 170, alturaMax: 185, pesoMin: 66, pesoMax: 79 },
+            { tamanho: 'G', alturaMin: 186, alturaMax: 193, pesoMin: 79.1, pesoMax: 99 },
+            { tamanho: 'GG', alturaMin: 194, alturaMax: 220, pesoMin: 99, pesoMax: 100 },
+            { tamanho: 'EG/OVO', alturaMin: 221, alturaMax: 999, pesoMin: 100.1, pesoMax: 999 }
+        ];
+
+        const tabelaFeminino = [
+            { tamanho: 'PP', alturaMin: 0, alturaMax: 160, pesoMin: 0, pesoMax: 40 },
+            { tamanho: 'P', alturaMin: 161, alturaMax: 167, pesoMin: 40, pesoMax: 60 },
+            { tamanho: 'M', alturaMin: 168, alturaMax: 175, pesoMin: 60, pesoMax: 75 },
+            { tamanho: 'G', alturaMin: 176, alturaMax: 185, pesoMin: 75.1, pesoMax: 90 },
+            { tamanho: 'GG', alturaMin: 186, alturaMax: 200, pesoMin: 90, pesoMax: 110 },
+            { tamanho: 'EG', alturaMin: 201, alturaMax: 999, pesoMin: 110.1, pesoMax: 999 }
+        ];
+
+        const medidasMasculino = {
+            'PP': { busto: '86-90 cm', cintura: '70-74 cm', quadril: '92-96 cm' },
+            'P': { busto: '90-94 cm', cintura: '74-78 cm', quadril: '96-100 cm' },
+            'M': { busto: '94-98 cm', cintura: '78-82 cm', quadril: '100-104 cm' },
+            'G': { busto: '98-102 cm', cintura: '82-86 cm', quadril: '104-108 cm' },
+            'GG': { busto: '102-106 cm', cintura: '86-90 cm', quadril: '108-112 cm' },
+            'EG/OVO': { busto: '106+ cm', cintura: '90+ cm', quadril: '112+ cm' }
+        };
+
+        const medidasFeminino = {
+            'PP': { busto: '80-84 cm', cintura: '60-64 cm', quadril: '88-92 cm' },
+            'P': { busto: '84-88 cm', cintura: '64-68 cm', quadril: '92-96 cm' },
+            'M': { busto: '88-92 cm', cintura: '68-72 cm', quadril: '96-100 cm' },
+            'G': { busto: '92-96 cm', cintura: '72-76 cm', quadril: '100-104 cm' },
+            'GG': { busto: '96-100 cm', cintura: '76-80 cm', quadril: '104-108 cm' },
+            'EG': { busto: '100+ cm', cintura: '80+ cm', quadril: '108+ cm' }
+        };
+
+        function selectGender(gender) {
+            selectedGender = gender;
+            
+            // Add click animation
+            const clickedBtn = document.getElementById(`btn-${gender}`);
+            addClickAnimation(clickedBtn, 'click-pulse');
+            
+            // Update button styles
+            document.querySelectorAll('.gender-btn').forEach(btn => {
+                btn.className = 'gender-btn flex items-center justify-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl font-medium transition-all hover:border-primary hover:text-primary';
+            });
+            
+            clickedBtn.className = 'gender-btn flex items-center justify-center gap-3 p-4 border-2 border-primary bg-primary text-white rounded-xl font-medium transition-all hover:shadow-lg';
+            
+            // Update table
+            updateTable();
+        }
+
+        function selectFit(fit) {
+            selectedFit = fit;
+            
+            // Adiciona animação de clique diferente para cada tipo
+            const clickedBtn = document.getElementById(`fit-${fit}`);
+            const animations = {
+                'justo': { button: 'click-bounce', svg: 'svg-click-wobble' },
+                'normal': { button: 'click-pulse', svg: 'svg-click-bounce' },
+                'largo': { button: 'click-flip', svg: 'svg-click-rotate' }
+            };
+            
+            addClickAnimation(clickedBtn, animations[fit].button, animations[fit].svg);
+            
+            // Remove previous animations and styles
+            document.querySelectorAll('.fit-btn').forEach(btn => {
+                btn.className = 'fit-btn p-6 border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-xl text-center transition-all hover:border-primary hover:text-primary';
+                const svg = btn.querySelector('svg');
+                if (svg) {
+                    svg.classList.remove('ajuste-justo', 'ajuste-normal', 'ajuste-largo');
+                }
+            });
+            
+            // Apply selected button style and animation
+            clickedBtn.className = 'fit-btn p-6 border-2 border-primary bg-primary text-white rounded-xl text-center transition-all hover:shadow-lg selected';
+            
+            // Add breathing animation to selected SVG
+            const selectedSvg = clickedBtn.querySelector('svg');
+            if (selectedSvg) {
+                selectedSvg.classList.add(`ajuste-${fit}`);
+            }
+        }
+
+        function updateTable() {
+            const titulo = document.getElementById('tabela-titulo');
+            const tbody = document.getElementById('tabela-body');
+            
+            titulo.textContent = `Tabela de Referência - ${selectedGender === 'masculino' ? 'Masculino' : 'Feminino'}`;
+            
+            const tabela = selectedGender === 'masculino' ? tabelaMasculino : tabelaFeminino;
+            
+            tbody.innerHTML = tabela.map(item => `
+                <tr class="border-b border-gray-200 dark:border-gray-700">
+                    <td class="py-2">${item.tamanho}</td>
+                    <td class="py-2">${item.alturaMin} - ${item.alturaMax}</td>
+                    <td class="py-2">${item.pesoMin} - ${item.pesoMax}</td>
+                </tr>
+            `).join('');
+        }
+
+        function parseAltura(alturaStr) {
+            alturaStr = alturaStr.replace(',', '.');
+            const altura = parseFloat(alturaStr);
+            
+            if (altura < 10) {
+                return altura * 100; // Convert meters to cm
+            }
+            return altura;
+        }
+
+        function calcularTamanho() {
+            const alturaStr = document.getElementById('altura').value.trim();
+            const peso = parseFloat(document.getElementById('peso').value);
+            
+            if (!alturaStr || !peso) {
+                showAlert('Por favor, preencha altura e peso.');
+                return;
+            }
+            
+            const altura = parseAltura(alturaStr);
+            
+            if (altura < 50 || altura > 250 || peso < 1 || peso > 300) {
+                showAlert('Por favor, verifique os valores inseridos.');
+                return;
+            }
+            
+            const tabela = selectedGender === 'masculino' ? tabelaMasculino : tabelaFeminino;
+            const medidas = selectedGender === 'masculino' ? medidasMasculino : medidasFeminino;
+            
+            let tamanhoCalculado = null;
+            
+            // Find size based on height and weight
+            for (let item of tabela) {
+                if (altura >= item.alturaMin && altura <= item.alturaMax &&
+                    peso >= item.pesoMin && peso <= item.pesoMax) {
+                    tamanhoCalculado = item.tamanho;
+                    break;
+                }
+            }
+            
+            // If no exact match, find by closest criteria
+            if (!tamanhoCalculado) {
+                let closestMatch = tabela[0];
+                let minDistance = Infinity;
+                
+                for (let item of tabela) {
+                    const alturaDistance = Math.abs(altura - (item.alturaMin + item.alturaMax) / 2);
+                    const pesoDistance = Math.abs(peso - (item.pesoMin + item.pesoMax) / 2);
+                    const totalDistance = alturaDistance + pesoDistance;
+                    
+                    if (totalDistance < minDistance) {
+                        minDistance = totalDistance;
+                        closestMatch = item;
+                    }
+                }
+                
+                tamanhoCalculado = closestMatch.tamanho;
+            }
+            
+            // Adjust for fit preference
+            if (selectedFit === 'largo' && tamanhoCalculado !== 'EG/OVO' && tamanhoCalculado !== 'EG') {
+                const tamanhos = selectedGender === 'masculino' 
+                    ? ['PP', 'P', 'M', 'G', 'GG', 'EG/OVO']
+                    : ['PP', 'P', 'M', 'G', 'GG', 'EG'];
+                const currentIndex = tamanhos.indexOf(tamanhoCalculado);
+                if (currentIndex < tamanhos.length - 1) {
+                    tamanhoCalculado = tamanhos[currentIndex + 1];
+                }
+            } else if (selectedFit === 'justo' && tamanhoCalculado !== 'PP') {
+                const tamanhos = selectedGender === 'masculino' 
+                    ? ['PP', 'P', 'M', 'G', 'GG', 'EG/OVO']
+                    : ['PP', 'P', 'M', 'G', 'GG', 'EG'];
+                const currentIndex = tamanhos.indexOf(tamanhoCalculado);
+                if (currentIndex > 0) {
+                    tamanhoCalculado = tamanhos[currentIndex - 1];
+                }
+            }
+            
+            // Show result
+            mostrarResultado(tamanhoCalculado, medidas[tamanhoCalculado]);
+        }
+
+        function mostrarResultado(tamanho, medidas) {
+            const resultado = document.getElementById('resultado');
+            const tamanhoElement = document.getElementById('tamanho-resultado');
+            const descricaoElement = document.getElementById('descricao-resultado');
+            const bustoElement = document.getElementById('busto-resultado');
+            const cinturaElement = document.getElementById('cintura-resultado');
+            const quadrilElement = document.getElementById('quadril-resultado');
+            
+            const nomesTamanhos = {
+                'PP': 'Extra Pequeno',
+                'P': 'Pequeno',
+                'M': 'Médio',
+                'G': 'Grande',
+                'GG': 'Extra Grande',
+                'EG/OVO': 'Extra Grande',
+                'EG': 'Extra Grande'
+            };
+            
+            const ajustes = {
+                'justo': 'ajuste próximo ao corpo',
+                'normal': 'ajuste padrão',
+                'largo': 'ajuste confortável'
+            };
+            
+            tamanhoElement.textContent = tamanho;
+            descricaoElement.textContent = `${nomesTamanhos[tamanho]} - ${ajustes[selectedFit]} para biotipo ${selectedGender} esguio`;
+            
+            bustoElement.textContent = medidas.busto;
+            cinturaElement.textContent = medidas.cintura;
+            quadrilElement.textContent = medidas.quadril;
+            
+            resultado.classList.remove('hidden');
+            resultado.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showAlert(message) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                    <div class="flex justify-end">
+                        <button class="px-4 py-2 bg-primary text-white hover:bg-blue-700 rounded" onclick="this.closest('.fixed').remove()">OK</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Funções de animação de clique
+        function addClickAnimation(element, animationType = 'click-pulse', svgAnimation = null) {
+            // Remove animações anteriores
+            element.classList.remove('click-bounce', 'click-pulse', 'click-shake', 'click-flip', 'success-animation', 'error-animation');
+            
+            // Adiciona nova animação
+            element.classList.add(animationType);
+            
+            // Animação específica do SVG se especificada
+            if (svgAnimation) {
+                const svg = element.querySelector('svg');
+                if (svg) {
+                    svg.classList.remove('svg-click-rotate', 'svg-click-bounce', 'svg-click-wobble');
+                    svg.classList.add(svgAnimation);
+                    
+                    // Remove a classe após a animação
+                    setTimeout(() => {
+                        svg.classList.remove(svgAnimation);
+                    }, 600);
+                }
+            }
+            
+            // Remove a classe após a animação
+            setTimeout(() => {
+                element.classList.remove(animationType);
+            }, 800);
+        }
+
+        function addRippleEffect(element, event) {
+            // Adiciona classe ripple se não existir
+            if (!element.classList.contains('ripple')) {
+                element.classList.add('ripple');
+            }
+            
+            // Ativa o efeito
+            element.classList.add('active');
+            
+            // Remove após a animação
+            setTimeout(() => {
+                element.classList.remove('active');
+            }, 600);
+        }
+
+        function addLoadingAnimation(button) {
+            const originalContent = button.innerHTML;
+            
+            // Muda para estado de loading
+            button.innerHTML = `
+                <svg class="w-5 h-5 loading-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Calculando...
+            `;
+            
+            button.disabled = true;
+            
+            return () => {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            };
+        }
+
+        function showSuccessAnimation(element) {
+            element.classList.add('success-animation');
+            setTimeout(() => {
+                element.classList.remove('success-animation');
+            }, 800);
+        }
+
+        function showErrorAnimation(element) {
+            element.classList.add('error-animation');
+            setTimeout(() => {
+                element.classList.remove('error-animation');
+            }, 600);
+        }
+
+        // Sobrescrever calcularTamanho para incluir animações
+        const originalCalcularTamanho = calcularTamanho;
+        calcularTamanho = function() {
+            const calculateBtn = document.querySelector('.calculate-btn');
+            const alturaInput = document.getElementById('altura');
+            const pesoInput = document.getElementById('peso');
+            
+            // Validação com animações
+            const alturaStr = alturaInput.value.trim();
+            const peso = parseFloat(pesoInput.value);
+            
+            if (!alturaStr || !peso) {
+                // Anima os campos vazios
+                if (!alturaStr) showErrorAnimation(alturaInput);
+                if (!peso) showErrorAnimation(pesoInput);
+                addClickAnimation(calculateBtn, 'click-shake');
+                showAlert('Por favor, preencha altura e peso.');
+                return;
+            }
+            
+            const altura = parseAltura(alturaStr);
+            
+            if (altura < 50 || altura > 250 || peso < 1 || peso > 300) {
+                showErrorAnimation(alturaInput);
+                showErrorAnimation(pesoInput);
+                addClickAnimation(calculateBtn, 'click-shake');
+                showAlert('Por favor, verifique os valores inseridos.');
+                return;
+            }
+            
+            // Adiciona animação de loading
+            const resetLoading = addLoadingAnimation(calculateBtn);
+            
+            // Simula um pequeno delay para mostrar a animação
+            setTimeout(() => {
+                // Executa o cálculo original
+                originalCalcularTamanho();
+                
+                // Reset do botão e animação de sucesso
+                resetLoading();
+                showSuccessAnimation(calculateBtn);
+                
+                // Anima o resultado aparecendo
+                setTimeout(() => {
+                    const resultado = document.getElementById('resultado');
+                    if (!resultado.classList.contains('hidden')) {
+                        addClickAnimation(resultado, 'click-pulse');
+                    }
+                }, 100);
+                
+            }, 1500); // 1.5 segundos de "processamento"
+        };
+
+        // Adicionar listeners para efeito ripple em botões
+        document.addEventListener('DOMContentLoaded', () => {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    // Só adiciona ripple se não tiver outras animações específicas
+                    if (!this.classList.contains('fit-btn') && !this.classList.contains('gender-btn')) {
+                        addRippleEffect(this, e);
+                    }
+                });
+            });
+        });
+
+        // Initialize
+        updateTable();
+    </script>
+</body>
+</html>

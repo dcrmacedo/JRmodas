@@ -304,7 +304,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
           </select>
           <button class="btn-outline" onclick="gerarRelatorioPDF('produtos')">📄 PDF</button>
           <button class="btn-outline green" onclick="gerarRelatorioExcel('produtos')">📊 Excel</button>
-          <button class="btn-outline" onclick="openModal('modalQRScanner')" title="Escanear QR/Código de Barras">📷 Scanner</button>
+          <button class="btn-outline" onclick="abrirScannerBusca()" title="Escanear QR/Código de Barras">📷 Scanner</button>
           <button class="btn-primary" onclick="openModal('modalProduto')">+ Novo Produto</button>
         </div>
       </div>
@@ -4672,105 +4672,103 @@ function imprimirEtiqueta() {
     win.document.close();
 }
 
-function abrirScannerEntrada() {
-    _scannerMode = 'entrada';
-    document.getElementById('modalScannerTitle').textContent = '📷 Scanner — Registrar Entrada';
-    document.getElementById('scannerInstrucao').textContent = 'Escaneie o QR Code do produto para pré-preencher a entrada.';
-    document.getElementById('btnScannerAcao').textContent = '+ Abrir Entrada';
+function _prepararScanner(titulo, instrucao, btnTexto, modo) {
+    _scannerMode = modo;
+    _ultimoCodigoEscaneado = null;
+    document.getElementById('modalScannerTitle').textContent = titulo;
+    document.getElementById('scannerInstrucao').textContent = instrucao;
+    document.getElementById('btnScannerAcao').textContent = btnTexto;
     document.getElementById('btnScannerAcao').style.display = 'none';
-    document.getElementById('scannerResult').textContent = 'Aguardando leitura...';
+    document.getElementById('scannerResult').textContent = 'Solicitando acesso à câmera...';
     document.getElementById('scannerProdutoInfo').style.display = 'none';
-    iniciarScanner();
+    // Reconstroi o video element
+    const box = document.getElementById('scannerBox');
+    box.innerHTML = '<video id="scannerVideo" autoplay muted playsinline style="width:100%;display:block"></video><div class="scan-line"></div>';
     document.getElementById('modalQRScanner').classList.remove('hidden');
+    // Chama imediatamente — sem setTimeout — para preservar o user gesture
+    iniciarScanner();
+}
+
+function abrirScannerBusca() {
+    _prepararScanner('📷 Scanner — Buscar Produto', 'Escaneie o QR Code do produto para localizá-lo no sistema.', '🔍 Ver Produto', 'busca');
+}
+
+function abrirScannerEntrada() {
+    _prepararScanner('📷 Scanner — Registrar Entrada', 'Escaneie o QR Code do produto para pré-preencher a entrada.', '+ Abrir Entrada', 'entrada');
 }
 
 function abrirScannerSaida() {
-    _scannerMode = 'saida';
-    document.getElementById('modalScannerTitle').textContent = '📷 Scanner — Registrar Saída';
-    document.getElementById('scannerInstrucao').textContent = 'Escaneie o QR Code do produto para pré-preencher a saída.';
-    document.getElementById('btnScannerAcao').textContent = '- Abrir Saída';
-    document.getElementById('btnScannerAcao').style.display = 'none';
-    document.getElementById('scannerResult').textContent = 'Aguardando leitura...';
-    document.getElementById('scannerProdutoInfo').style.display = 'none';
-    iniciarScanner();
-    document.getElementById('modalQRScanner').classList.remove('hidden');
+    _prepararScanner('📷 Scanner — Registrar Saída', 'Escaneie o QR Code do produto para pré-preencher a saída.', '- Abrir Saída', 'saida');
 }
 
 async function iniciarScanner() {
     const resultEl = document.getElementById('scannerResult');
     const scannerBox = document.getElementById('scannerBox');
 
-    resultEl.textContent = 'Solicitando acesso à câmera...';
+    // getUserMedia deve ser chamado diretamente aqui, sem nenhum await antes
+    // para preservar o "user gesture" do clique original
+    const streamPromise = navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }
+    }).catch(() =>
+        navigator.mediaDevices.getUserMedia({ video: true })
+    );
 
+    let stream;
     try {
-        // Solicita câmera explicitamente
-        _scannerStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
-
-        const video = document.getElementById('scannerVideo');
-        video.srcObject = _scannerStream;
-        video.setAttribute('playsinline', true);
-        await video.play();
-        resultEl.textContent = '📷 Câmera ativa — aponte para o código...';
-
-        // Tenta API nativa BarcodeDetector (Chrome/Edge modernos)
-        if ('BarcodeDetector' in window) {
-            const detector = new BarcodeDetector({
-                formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'data_matrix', 'pdf417']
-            });
-            const scan = async () => {
-                if (!_scannerStream) return;
-                try {
-                    const barcodes = await detector.detect(video);
-                    if (barcodes.length > 0) {
-                        processarCodigoEscaneado(barcodes[0].rawValue);
-                    }
-                } catch(e) {}
-                _scannerInterval = setTimeout(scan, 300);
-            };
-            scan();
-            return;
-        }
-
-        // Fallback: ZXing
-        if (window.ZXing) {
-            const codeReader = new ZXing.BrowserMultiFormatReader();
-            window._scannerCodeReader = codeReader;
-            codeReader.decodeFromVideoElement(video, (result, err) => {
-                if (result) processarCodigoEscaneado(result.getText());
-            });
-            return;
-        }
-
-        // Último fallback: carregar ZXing dinamicamente
-        resultEl.textContent = '⏳ Carregando leitor de código...';
-        await new Promise((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = 'https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js';
-            s.onload = resolve;
-            s.onerror = reject;
-            document.head.appendChild(s);
-        });
-        if (window.ZXing) {
-            const codeReader = new ZXing.BrowserMultiFormatReader();
-            window._scannerCodeReader = codeReader;
-            codeReader.decodeFromVideoElement(video, (result, err) => {
-                if (result) processarCodigoEscaneado(result.getText());
-            });
-            resultEl.textContent = '📷 Câmera ativa — aponte para o código...';
-        } else {
-            resultEl.textContent = '⚠️ Leitor não disponível neste navegador. Tente o Chrome.';
-        }
-
+        stream = await streamPromise;
     } catch(e) {
-        let msg = '⚠️ Sem acesso à câmera.';
-        if (e.name === 'NotAllowedError') msg = '🚫 Permissão negada. Clique no 🔒 da barra de endereço e permita a câmera.';
+        let msg = '⚠️ Não foi possível acessar a câmera.';
+        if (e.name === 'NotAllowedError') msg = '🚫 Permissão negada. Clique no 🔒 na barra de endereço e permita a câmera para este site.';
         else if (e.name === 'NotFoundError') msg = '📷 Nenhuma câmera encontrada neste dispositivo.';
-        else if (e.name === 'NotReadableError') msg = '⚠️ Câmera em uso por outro aplicativo.';
+        else if (e.name === 'NotReadableError') msg = '⚠️ Câmera em uso por outro app. Feche outros apps e tente novamente.';
         resultEl.textContent = msg;
-        scannerBox.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;font-size:0.85rem;line-height:1.6">' + msg + '<br><br>Use a busca por nome no campo de produto.</div>';
+        if (scannerBox) scannerBox.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;font-size:0.85rem;line-height:1.8">' + msg + '</div>';
+        return;
     }
+
+    _scannerStream = stream;
+    const video = document.getElementById('scannerVideo');
+    if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    try { await video.play(); } catch(e) {}
+
+    resultEl.textContent = '📷 Câmera ativa — aponte para o código...';
+
+    // API nativa BarcodeDetector (Chrome 88+, Edge 88+, Chrome Android)
+    if ('BarcodeDetector' in window) {
+        const detector = new BarcodeDetector({
+            formats: ['qr_code','code_128','code_39','ean_13','ean_8','upc_a','upc_e','data_matrix','pdf417','aztec']
+        });
+        const scan = async () => {
+            if (!_scannerStream) return;
+            try {
+                if (video.readyState >= 2) {
+                    const codes = await detector.detect(video);
+                    if (codes.length > 0) { processarCodigoEscaneado(codes[0].rawValue); return; }
+                }
+            } catch(e) {}
+            _scannerInterval = setTimeout(scan, 250);
+        };
+        scan();
+        return;
+    }
+
+    // Fallback: ZXing
+    if (window.ZXing) {
+        try {
+            const codeReader = new ZXing.BrowserMultiFormatReader();
+            window._scannerCodeReader = codeReader;
+            codeReader.decodeFromVideoElement(video, (result) => {
+                if (result) processarCodigoEscaneado(result.getText());
+            });
+            return;
+        } catch(e) {}
+    }
+
+    resultEl.textContent = '⚠️ Câmera ativa mas leitor não disponível. Use o Chrome para escanear.';
 }
 
 let _ultimoCodigoEscaneado = null;
@@ -4810,7 +4808,13 @@ function processarCodigoEscaneado(codigo) {
 function executarAcaoScanner() {
     const prodId = document.getElementById('btnScannerAcao').dataset.prodId;
     fecharScanner();
-    if (_scannerMode === 'entrada') {
+    if (_scannerMode === 'busca') {
+        showPage('produtos');
+        setTimeout(() => {
+            const inp = document.getElementById('searchProdutos');
+            if (inp) { const p = state.produtos.find(x => x.id === prodId); if (p) { inp.value = p.nome; filterProdutos(); } }
+        }, 300);
+    } else if (_scannerMode === 'entrada') {
         openModal('modalEntrada');
         setTimeout(() => {
             const p = state.produtos.find(x => x.id === prodId);

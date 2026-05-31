@@ -12,7 +12,7 @@
 <!-- QR Code generator -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ZXing barcode scanner (browser) -->
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
 <!-- Bibliotecas para relatórios -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -4697,27 +4697,79 @@ function abrirScannerSaida() {
 }
 
 async function iniciarScanner() {
+    const resultEl = document.getElementById('scannerResult');
+    const scannerBox = document.getElementById('scannerBox');
+
+    resultEl.textContent = 'Solicitando acesso à câmera...';
+
     try {
-        _scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        // Solicita câmera explicitamente
+        _scannerStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
         const video = document.getElementById('scannerVideo');
         video.srcObject = _scannerStream;
+        video.setAttribute('playsinline', true);
         await video.play();
+        resultEl.textContent = '📷 Câmera ativa — aponte para o código...';
 
-        // Use ZXing if available
+        // Tenta API nativa BarcodeDetector (Chrome/Edge modernos)
+        if ('BarcodeDetector' in window) {
+            const detector = new BarcodeDetector({
+                formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'data_matrix', 'pdf417']
+            });
+            const scan = async () => {
+                if (!_scannerStream) return;
+                try {
+                    const barcodes = await detector.detect(video);
+                    if (barcodes.length > 0) {
+                        processarCodigoEscaneado(barcodes[0].rawValue);
+                    }
+                } catch(e) {}
+                _scannerInterval = setTimeout(scan, 300);
+            };
+            scan();
+            return;
+        }
+
+        // Fallback: ZXing
         if (window.ZXing) {
-            const hints = new Map();
-            const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+            const codeReader = new ZXing.BrowserMultiFormatReader();
             window._scannerCodeReader = codeReader;
             codeReader.decodeFromVideoElement(video, (result, err) => {
-                if (result) { processarCodigoEscaneado(result.getText()); }
+                if (result) processarCodigoEscaneado(result.getText());
             });
-        } else {
-            // Fallback: just show "camera active" message
-            document.getElementById('scannerResult').textContent = 'Câmera ativa. Biblioteca ZXing não carregada — use o campo de busca manual.';
+            return;
         }
+
+        // Último fallback: carregar ZXing dinamicamente
+        resultEl.textContent = '⏳ Carregando leitor de código...';
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+        if (window.ZXing) {
+            const codeReader = new ZXing.BrowserMultiFormatReader();
+            window._scannerCodeReader = codeReader;
+            codeReader.decodeFromVideoElement(video, (result, err) => {
+                if (result) processarCodigoEscaneado(result.getText());
+            });
+            resultEl.textContent = '📷 Câmera ativa — aponte para o código...';
+        } else {
+            resultEl.textContent = '⚠️ Leitor não disponível neste navegador. Tente o Chrome.';
+        }
+
     } catch(e) {
-        document.getElementById('scannerResult').textContent = '⚠️ Sem acesso à câmera: ' + (e.message || e);
-        document.getElementById('scannerBox').innerHTML = '<div style="padding:40px;text-align:center;color:#94A3B8;font-size:0.85rem">Câmera não disponível.<br>Use a busca manual no campo de produto.</div>';
+        let msg = '⚠️ Sem acesso à câmera.';
+        if (e.name === 'NotAllowedError') msg = '🚫 Permissão negada. Clique no 🔒 da barra de endereço e permita a câmera.';
+        else if (e.name === 'NotFoundError') msg = '📷 Nenhuma câmera encontrada neste dispositivo.';
+        else if (e.name === 'NotReadableError') msg = '⚠️ Câmera em uso por outro aplicativo.';
+        resultEl.textContent = msg;
+        scannerBox.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;font-size:0.85rem;line-height:1.6">' + msg + '<br><br>Use a busca por nome no campo de produto.</div>';
     }
 }
 
@@ -4780,6 +4832,7 @@ function executarAcaoScanner() {
 }
 
 function fecharScanner() {
+    if (_scannerInterval) { clearTimeout(_scannerInterval); _scannerInterval = null; }
     if (_scannerStream) {
         _scannerStream.getTracks().forEach(t => t.stop());
         _scannerStream = null;
